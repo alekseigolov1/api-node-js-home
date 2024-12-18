@@ -1,58 +1,63 @@
 import { test, expect } from '@playwright/test';
-import {ApiClient} from "../src/api-client";
+import { UserApiClient } from '../src/api-client';
 
+test.describe('User Management API Tests', () => {
+    let userApiClient: UserApiClient;
 
-
-const baseURL = 'http://localhost:3000/users';
-
-test.describe('User management API with loop', () => {
-
-    test.beforeEach(async ({ request }) => {
-
-        const apiClient = new ApiClient(request);
-        const users = await apiClient.getUsers();
-        const userIds = users.map(user => user.id);
-
-        for (const userId of userIds) {
-            await apiClient.deleteUser(userId);
-        }
-
-        const remainingUsers = await apiClient.getUsers();
-        expect(remainingUsers).toEqual([]);
+    test.beforeEach(async ({request}) => {
+        userApiClient = new UserApiClient();
+        await userApiClient.deleteAllUsers(request);
     });
 
-    test('GET / - should return 200 OK with empty array when no users', async ({ request }) => {
-        const apiClient = new ApiClient(request);
-        const users = await apiClient.getUsers();
+    test('GET / - should return empty when no users', async ({request}) => {
+        const users = await userApiClient.getUsers(request);
         expect(users).toEqual([]);
     });
 
-    test('POST / - should add a user', async ({ request }) => {
-        const apiClient = new ApiClient(request);
-        const user = await apiClient.createUser();
-        expect(user).toHaveProperty('id');
+    test('Create a few users and verify total count', async ({request}) => {
+        const userCount = 4;
+        const createdUsers = [];
+
+        for (let i = 0; i < userCount; i++) {
+            const user = await userApiClient.createUser(request);
+            createdUsers.push(user);
+        }
+
+        const users = await userApiClient.getUsers(request);
+        expect(users).toHaveLength(userCount);
+        expect(users).toEqual(createdUsers); // Optional: Verify that created users match retrieved users
     });
 
-    test('GET /:id - should get user by ID', async ({ request }) => {
-        const apiClient = new ApiClient(request);
-        const newUser = await apiClient.createUser();
-        const user = await apiClient.getUserById(newUser.id);
-        expect(user).toHaveProperty('id', newUser.id);
+    test('Create N users, delete all users, and verify empty response', async ({request}) => {
+        const userCount = 4;
+
+        for (let i = 0; i < userCount; i++) {
+            await userApiClient.createUser(request);
+        }
+
+        await userApiClient.deleteAllUsers(request);
+
+        const usersAfterDelete = await userApiClient.getUsers(request);
+        expect(usersAfterDelete).toEqual([]);
     });
 
-    test('DELETE /:id - should delete a user by ID', async ({ request }) => {
-        const apiClient = new ApiClient(request);
-        const newUser = await apiClient.createUser();
-        await apiClient.deleteUser(newUser.id);
-        const user = await apiClient.getUserById(newUser.id);
-        expect(user).toBeNull();
+    test('Create N users, delete one user, and verify remaining users', async ({request}) => {
+        const userCount = 4;
+        const createdUsers: any[] = [];
+
+        for (let i = 0; i < userCount; i++) {
+            const user = await userApiClient.createUser(request);
+            createdUsers.push(user);
+        }
+
+        // Delete the first user
+        await userApiClient.deleteUserById(request, createdUsers[0].id);
+
+        const remainingUsers = await userApiClient.getUsers(request);
+        expect(remainingUsers).toHaveLength(userCount - 1);
+
+        // Optional: Verify that the deleted user is indeed removed
+        const deletedUser = remainingUsers.find((user: { id: any; }) => user.id === createdUsers[0].id);
+        expect(deletedUser).toBeUndefined();
     });
-
-    test('GET /:id - should return 404 if user not found', async ({ request }) => {
-        const apiClient = new ApiClient(request);
-        const response = await apiClient.getUserById(1000);
-        expect(response).toBeNull();
-    });
-
-
-});
+})

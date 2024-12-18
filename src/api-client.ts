@@ -1,46 +1,33 @@
-import { StatusCodes } from 'http-status-codes';
+import { APIRequestContext } from '@playwright/test';
 import { expect } from '@playwright/test';
+import {StatusCodes} from "http-status-codes";
 
 const baseURL = 'http://localhost:3000/users';
 
-export class ApiClient {
-    constructor(request) {
-        this.request = request;
-    }
-
-    async getUsers() {
-        const response = await this.request.get(baseURL);
+export class UserApiClient {
+    async getUsers(request: APIRequestContext) {
+        const response = await request.get(baseURL);
         expect(response.status()).toBe(StatusCodes.OK);
-
-        return response.json();
+        return await response.json();
     }
 
-    async createUser() {
-        const response = await this.request.post(baseURL, {});
+    async createUser(request: APIRequestContext) {
+        const response = await request.post(baseURL);
         expect(response.status()).toBe(StatusCodes.CREATED);
-
-
-        return response.json();
+        return await response.json();
     }
 
-    async getUserById(userId) {
-        const response = await this.request.get(`${baseURL}/${userId}`);
-        if (response.status() === StatusCodes.NOT_FOUND) {
-            return null;
-        }
+    async deleteUserById(request: APIRequestContext, userId: number) {
+        const response = await request.delete(`${baseURL}/${userId}`);
         expect(response.status()).toBe(StatusCodes.OK);
-
-
-        return response.json();
     }
 
-    async deleteUser(userId) {
-        const response = await this.request.delete(`${baseURL}/${userId}`);
-        if (response.status() === StatusCodes.NOT_FOUND) {
-            return response;
+    async deleteAllUsers(request: APIRequestContext) {
+        const users = await this.getUsers(request);
+        for (const user of users) {
+            await this.deleteUserById(request, user.id);
         }
-        expect(response.status()).toBe(StatusCodes.OK)
-
-        return response;
+        const remainingUsers = await this.getUsers(request);
+        expect(remainingUsers).toHaveLength(0);
     }
 }
