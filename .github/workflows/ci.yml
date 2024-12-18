@@ -35,3 +35,6 @@ jobs:
 
       - name: Run all other tests(non-empty array scenarios)
         run: npx playwright test tests/non-empty-array-tests.spec.ts
+
+      - name: Run test to check scenarios with API Client
+        run: npx playwright test tests/api-client.test.ts
